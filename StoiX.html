@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LFMD AWKUM | Stoichiometric Synthesis Calculator</title>
+    
+    <link rel="apple-touch-icon" href="app-icon.png">
+    <link rel="icon" type="image/png" href="app-icon.png">
+
+    <style>
+        :root {
+            --primary: #1e3a8a; --accent: #d97706; --accent-light: #fef3c7;
+            --success: #16a34a; --danger: #dc2626; --bg: #f1f5f9;
+            --card-bg: #ffffff; --border: #cbd5e1; --text: #334155;
+            --text-dark: #0f172a;
+        } 
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg); color: var(--text); margin: 0;
+            padding: 20px 10px; display: flex; justify-content: center;
+        }
+        .app-window {
+            width: 100%; max-width: 900px; background: var(--card-bg);
+            border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border); overflow: hidden; box-sizing: border-box;
+        }
+        .lab-banner {
+            background-color: var(--primary); color: white; padding: 20px 16px;
+            display: flex; flex-direction: column; gap: 12px; border-bottom: 4px solid var(--accent);
+        }
+        @media (min-width: 600px) {
+            .lab-banner { flex-direction: row; justify-content: space-between; align-items: center; padding: 24px 32px; }
+        }
+        .lab-info h1 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.3; }
+        .lab-info p { margin: 4px 0 0 0; font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
+        .researcher-container { display: flex; flex-direction: column; gap: 6px; }
+        .researcher-badge { background: rgba(255, 255, 255, 0.08); padding: 8px 16px; border-radius: 8px; font-size: 12px; border: 1px solid rgba(255, 255, 255, 0.15); }
+        .app-body { padding: 16px; box-sizing: border-box; }
+        @media (min-width: 600px) { .app-body { padding: 32px; } }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px; }
+        @media (min-width: 600px) { .grid { grid-template-columns: 1fr 1fr; gap: 24px; } .full-width { grid-column: span 2; } }
+        .form-group { display: flex; flex-direction: column; } 
+        label { font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 8px; }
+        input[type="text"], input[type="number"], select { padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; color: var(--text-dark); background-color: #fff; box-sizing: border-box; width: 100%; }
+        input:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 4px rgba(30, 58, 138, 0.1); }
+        .btn { background-color: var(--primary); color: white; border: none; padding: 14px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; width: 100%; transition: all 0.2s; }
+        .btn:hover { background-color: #1e40af; }
+        .btn-secondary { background-color: #64748b; margin-top: 16px; }
+        .btn-secondary:hover { background-color: #475569; }
+        .result-box { margin-top: 32px; display: none; border-top: 2px dashed var(--border); padding-top: 24px; }
+        .summary-cards { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 24px; }
+        @media (min-width: 600px) { .summary-cards { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
+        .card { background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid var(--border); }
+        .card-label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600; margin-bottom: 4px; }
+        .card-val { font-size: 18px; font-weight: 700; color: var(--text-dark); }
+        .card.highlight { background-color: #f0fdf4; border-color: #bbf7d0; }
+        .card.highlight .card-val { color: var(--success); }
+        .card.loss { background-color: #fff1f2; border-color: #fecdd3; }
+        .card.loss .card-val { color: var(--danger); }
+        .table-responsive { width: 100%; overflow-x: auto; margin-top: 8px; border: 1px solid var(--border); border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; min-width: 500px; }
+        th, td { padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: left; font-size: 15px; }
+        th { background-color: #f8fafc; color: var(--text-dark); font-weight: 600; }
+        .highlight-cell { font-weight: 700; color: #1e3a8a; background-color: #eff6ff; padding: 6px 12px; border-radius: 6px; display: inline-block; border: 1px solid #bfdbfe; }
+        .error { color: var(--danger); background-color: #fef2f2; padding: 14px 16px; border-radius: 8px; margin-top: 20px; display: none; font-weight: 500; border: 1px solid #fee2e2; }
+        
+        /* THIS STYLING FIXED YOUR LAYOUT BLOCK OUTLINES */
+        .lab-footer {
+            margin-top: 40px; border-top: 1px dashed var(--border); padding-top: 16px;
+            text-align: center; font-size: 11px; color: #64748b; line-height: 1.6;
+            clear: both; width: 100%; box-sizing: border-box;
+        }
+        .lab-footer strong { color: var(--danger); }
+    </style>
+</head>
+<body>
+<div class="app-window">
+    <div class="lab-banner">
+        <div class="lab-info">
+            <h1>Lab of Functional Materials and Devices (LFMD)</h1>
+            <p>Abdul Wali Khan University Mardan (AWKUM)</p>
+        </div>
+        <div class="researcher-container">
+            <div class="researcher-badge">Investigator: <strong>Raz Muhammad</strong></div>
+            <div class="researcher-badge">Prepared By: <strong>Yaseen Khan</strong></div>
+        </div>
+    </div>
+
+    <div class="app-body">
+        <div class="grid">
+            <div class="form-group full-width">
+                <label for="precursors">Precursor Chemicals (Comma Separated)</label>
+                <input type="text" id="precursors" value="CaCO3, Y2O3, La2O3, Bi2O3, SrCO3, MnO2">
+            </div>
+            <div class="form-group full-width">
+                <label for="target">Target Composition Formula</label>
+                <input type="text" id="target" value="Ca0.97Y0.0075La0.0075Bi0.0075Sr0.0075MnO3">
+            </div>
+            <div class="form-group">
+                <label for="calculationMode">Calculation Mode</label>
+                <select id="calculationMode" onchange="updateLabel()">
+                    <option value="product" selected>Target Post-Sintered Product Yield</option>
+                    <option value="precursor">Target Raw Initial Powder Mass</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label id="weightLabel" for="batchWeight">Desired Final Post-Sintered Product Mass (grams)</label>
+                <input type="number" id="batchWeight" value="5" step="any" min="0.001">
+            </div>
+        </div>
+
+        <button class="btn" onclick="calculateBatch()">Compute Batch Recipe</button>
+        <div id="errorMessage" class="error"></div>
+
+        <div id="resultSection" class="result-box">
+            <div class="summary-cards">
+                <div class="card">
+                    <div class="card-label">Target Mol. Weight</div>
+                    <div class="card-val"><span id="compoundMW">-</span> <span style="font-size:12px; font-weight:normal;">g/mol</span></div>
+                </div>
+                <div class="card highlight">
+                    <div class="card-label">Total Powder to Weigh</div>
+                    <div class="card-val"><span id="totalRawWeight">-</span> <span style="font-size:12px; font-weight:normal;">g</span></div>
+                </div>
+                <div class="card loss">
+                    <div class="card-label">Est. CO₂ Gas Loss</div>
+                    <div class="card-val"><span id="gasLossWeight">-</span> <span style="font-size:12px; font-weight:normal;">g</span></div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Precursor Material</th>
+                            <th>Target Moles</th>
+                            <th>Mass to Weigh</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recipeTableBody"></tbody>
+                </table>
+            </div>
+            <button class="btn btn-secondary" onclick="copyRecipeToClipboard()">📋 Copy Batch Recipe Details</button>
+        </div>
+
+        <!-- FIXED PLACEMENT INTERNAL DISCLAIMER -->
+        <div class="lab-footer">
+            © 2026 LFMD AWKUM. Developed by Yaseen Khan.<br>
+            <strong>Disclaimer:</strong> For educational and laboratory planning purposes only. Always double-check critical calculations manually before preparing batches.
+        </div>
+    </div>
+</div>
+<script>
+const ATOMIC_WEIGHTS = {
+    "H":1.008,"He":4.0026,"Li":6.94,"Be":9.0122,"B":10.81,"C":12.011,"N":14.007,"O":15.999,"F":18.998,"Ne":20.18,
+    "Na":22.99,"Mg":24.305,"Al":26.982,"Si":28.085,"P":30.974,"S":32.06,"Cl":35.45,"Ar":39.948,"K":39.098,"Ca":40.078,
+    "Sc":44.956,"Ti":47.867,"V":50.942,"Cr":51.996,"Mn":54.938,"Fe":55.845,"Co":58.933,"Ni":58.693,"Cu":63.546,"Zn":65.38,
+    "Ga":69.723,"Ge":72.63,"As":74.922,"Se":78.971,"Br":79.904,"Kr":83.798,"Rb":85.468,"Sr":87.62,"Y":88.906,"Zr":91.224,
+    "Nb":92.906,"Mo":95.95,"Tc":98,"Ru":101.07,"Rh":102.91,"Pd":106.42,"Ag":107.87,"Cd":112.41,"In":114.82,"Sn":118.71,
+    "Sb":121.76,"Te":127.6,"I":126.9,"Xe":131.29,"Cs":132.91,"Ba":137.33,"La":138.91,"Ce":140.12,"Pr":140.91,"Nd":144.24,
+    "Pm":145,"Sm":150.36,"Eu":151.96,"Gd":157.25,"Tb":158.93,"Dy":162.5,"Ho":164.93,"Er":167.26,"Tm":168.93,"Yb":173.05,
+    "Lu":174.97,"Hf":178.49,"Ta":180.95,"W":183.84,"Re":186.21,"Os":190.23,"Ir":192.22,"Pt":195.08,"Au":196.97,"Hg":200.59,
+    "Tl":204.38,"Pb":207.2,"Bi":208.98,"Th":232.04,"Pa":231.04,"U":238.03
+};
+
+function updateLabel() {
+    const mode = document.getElementById("calculationMode").value;
+    const label = document.getElementById("weightLabel");
+    label.innerText = mode === "product" ? "Desired Final Post-Sintered Product Mass (grams)" : "Desired Initial Precursor Powder Mass (grams)";
+}
+
+function parseFormula(formulaStr) {
+    let result = {};
+    let regex = /([A-Z][a-z]*)(\d*\.?\d*)/g;
+    let match;
+    let totalCharsMatched = 0;
+    let cleanFormula = formulaStr.replace(/\s+/g, '');
+    
+    while ((match = regex.exec(cleanFormula)) !== null) {
+        let element = match[1];
+        let valStr = match[2];
+        let amount = valStr === "" ? 1 : parseFloat(valStr);
+        
+        if (!ATOMIC_WEIGHTS[element]) { throw new Error(`Unknown symbol: "${element}"`); }
+        result[element] = (result[element] || 0) + amount;
+        totalCharsMatched += match[0].length;
+    }
+    if (totalCharsMatched !== cleanFormula.length) { throw new Error(`Formula formatting error.`); }
+    return result;
+}
+
+function calculateMW(parsedFormula) {
+    let weight = 0;
+    for (let el in parsedFormula) { weight += parsedFormula[el] * ATOMIC_WEIGHTS[el]; }
+    return weight;
+}
+
+function calculateBatch() {
+    const errorDiv = document.getElementById("errorMessage");
+    const resultDiv = document.getElementById("resultSection");
+    errorDiv.style.display = "none"; resultDiv.style.display = "none";
+    try {
+        let precursorsInput = document.getElementById("precursors").value.split(",");
+        let targetInput = document.getElementById("target").value.trim();
+        let userMass = parseFloat(document.getElementById("batchWeight").value);
+        let mode = document.getElementById("calculationMode").value;
+        if (isNaN(userMass) || userMass <= 0) { throw new Error("Enter a valid positive mass."); }
+
+        let targetComposition = parseFormula(targetInput);
+        let targetMW = calculateMW(targetComposition);
+        document.getElementById("compoundMW").innerText = targetMW.toFixed(4);
+
+        let precursorList = [];
+        precursorsInput.forEach(p => {
+            let name = p.trim();
+            if(name) precursorList.push({ name: name, composition: parseFormula(name), mw: calculateMW(parseFormula(name)) });
+        });
+
+        let molesNeeded = new Array(precursorList.length).fill(0);
+        precursorList.forEach((prec, pIdx) => {
+            for(let el in prec.composition) {
+                if (targetComposition[el] !== undefined) {
+                    molesNeeded[pIdx] = targetComposition[el] / prec.composition[el];
+                    break;
+                }
+            }
+        });
+
+        let relMasses = precursorList.map((prec, idx) => molesNeeded[idx] * prec.mw);
+        let relTotalPrecursorMass = relMasses.reduce((a, b) => a + b, 0);
+        let scaleMultiplier = mode === "product" ? (userMass / targetMW) : (userMass / relTotalPrecursorMass);
+
+        let finalTotalRawWeigh = relTotalPrecursorMass * scaleMultiplier;
+        let finalProductYield = targetMW * scaleMultiplier;
+        let co2Loss = finalTotalRawWeigh - finalProductYield;
+
+        document.getElementById("totalRawWeight").innerText = finalTotalRawWeigh.toFixed(4);
+        document.getElementById("gasLossWeight").innerText = co2Loss.toFixed(4);
+
+        let tableBody = document.getElementById("recipeTableBody");
+        tableBody.innerHTML = "";
+        precursorList.forEach((prec, idx) => {
+            let finalWeighMass = relMasses[idx] * scaleMultiplier;
+            tableBody.innerHTML += `<tr>
+                <td><strong>${prec.name}</strong></td>
+                <td>${(molesNeeded[idx] * scaleMultiplier).toFixed(6)}</td>
+                <td><span class="highlight-cell">${finalWeighMass.toFixed(4)} g</span></td>
+            </tr>`;
+        });
+        resultDiv.style.display = "block";
+    } catch (err) {
+        errorDiv.innerText = err.message; errorDiv.style.display = "block";
+    }
+}
+
+function copyRecipeToClipboard() {
+    try {
+        let formula = document.getElementById("target").value.trim();
+        let totalPowder = document.getElementById("totalRawWeight").innerText;
+        let mw = document.getElementById("compoundMW").innerText;
+        let gasLoss = document.getElementById("gasLossWeight").innerText;
+        let txt = `🔬 LFMD AWKUM Batch Recipe\nTarget: ${formula}\nMol Weight: ${mw} g/mol\nTotal Powder: ${totalPowder} g\nGas Loss: ${gasLoss} g\n\n`;
+        let rows = document.querySelectorAll("#recipeTableBody tr");
+        rows.forEach(r => {
+            let c = r.querySelectorAll("td");
+            if(c.length >= 3) txt += `${c[0].innerText.trim()} | Moles: ${c[1].innerText.trim()} | Mass: ${c[2].innerText.trim()}\n`;
+        });
+        navigator.clipboard.writeText(txt).then(() => alert("📋 Recipe copied to clipboard!")).catch(() => alert("Clipboard error."));
+    } catch(e) { alert("Compute calculations first."); }
+}
+</script>
+</body>
+</html>
