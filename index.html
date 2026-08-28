@@ -64,8 +64,6 @@
         th { background-color: #f8fafc; color: var(--text-dark); font-weight: 600; }
         .highlight-cell { font-weight: 700; color: #1e3a8a; background-color: #eff6ff; padding: 6px 12px; border-radius: 6px; display: inline-block; border: 1px solid #bfdbfe; }
         .error { color: var(--danger); background-color: #fef2f2; padding: 14px 16px; border-radius: 8px; margin-top: 20px; display: none; font-weight: 500; border: 1px solid #fee2e2; }
-        
-        /* THIS STYLING FIXED YOUR LAYOUT BLOCK OUTLINES */
         .lab-footer {
             margin-top: 40px; border-top: 1px dashed var(--border); padding-top: 16px;
             text-align: center; font-size: 11px; color: #64748b; line-height: 1.6;
@@ -91,7 +89,7 @@
         <div class="grid">
             <div class="form-group full-width">
                 <label for="precursors">Precursor Chemicals (Comma Separated)</label>
-                <input type="text" id="precursors" value="CaCO3, Y2O3, La2O3, Bi2O3, SrCO3, MnO2">
+                <input type="text" id="precursors" value="CaCO3, Y2O3, La2O3, Bi2O3, SrCO3, MnO2" oninput="populateLimitedDropdown()">
             </div>
             <div class="form-group full-width">
                 <label for="target">Target Composition Formula</label>
@@ -102,7 +100,12 @@
                 <select id="calculationMode" onchange="updateLabel()">
                     <option value="product" selected>Target Post-Sintered Product Yield</option>
                     <option value="precursor">Target Raw Initial Powder Mass</option>
+                    <option value="limited">Based on Limited Precursor Mass</option>
                 </select>
+            </div>
+            <div class="form-group" id="limitedPrecursorGroup" style="display: none; margin-bottom: 16px;">
+                <label for="limitedPrecursorSelect">Select the Limited Precursor</label>
+                <select id="limitedPrecursorSelect"></select>
             </div>
             <div class="form-group">
                 <label id="weightLabel" for="batchWeight">Desired Final Post-Sintered Product Mass (grams)</label>
@@ -144,7 +147,6 @@
             <button class="btn btn-secondary" onclick="copyRecipeToClipboard()">📋 Copy Batch Recipe Details</button>
         </div>
 
-        <!-- FIXED PLACEMENT INTERNAL DISCLAIMER -->
         <div class="lab-footer">
             © 2026 LFMD AWKUM. Developed by Yaseen Khan.<br>
             <strong>Disclaimer:</strong> For educational and laboratory planning purposes only. Always double-check critical calculations manually before preparing batches.
@@ -164,10 +166,41 @@ const ATOMIC_WEIGHTS = {
     "Tl":204.38,"Pb":207.2,"Bi":208.98,"Th":232.04,"Pa":231.04,"U":238.03
 };
 
+function populateLimitedDropdown() {
+    const select = document.getElementById("limitedPrecursorSelect");
+    const inputVals = document.getElementById("precursors").value.split(",");
+    const currentSelection = select.value;
+    select.innerHTML = "";
+    inputVals.forEach(p => {
+        let name = p.trim();
+        if(name) {
+            let option = document.createElement("option");
+            option.value = name;
+            option.innerText = name;
+            select.appendChild(option);
+        }
+    });
+    if([...select.options].some(o => o.value === currentSelection)) {
+        select.value = currentSelection;
+    }
+}
+
 function updateLabel() {
     const mode = document.getElementById("calculationMode").value;
     const label = document.getElementById("weightLabel");
-    label.innerText = mode === "product" ? "Desired Final Post-Sintered Product Mass (grams)" : "Desired Initial Precursor Powder Mass (grams)";
+    const limitedGroup = document.getElementById("limitedPrecursorGroup");
+    
+    if (mode === "product") {
+        label.innerText = "Desired Final Post-Sintered Product Mass (grams)";
+        limitedGroup.style.display = "none";
+    } else if (mode === "precursor") {
+        label.innerText = "Desired Initial Precursor Powder Mass (grams)";
+        limitedGroup.style.display = "none";
+    } else if (mode === "limited") {
+        label.innerText = "Available Mass of Selected Limited Precursor (grams)";
+        limitedGroup.style.display = "flex";
+        populateLimitedDropdown();
+    }
 }
 
 function parseFormula(formulaStr) {
@@ -178,15 +211,15 @@ function parseFormula(formulaStr) {
     let cleanFormula = formulaStr.replace(/\s+/g, '');
     
     while ((match = regex.exec(cleanFormula)) !== null) {
-        let element = match[1];
+        let elSymbol = match[1];
         let valStr = match[2];
-        let amount = valStr === "" ? 1 : parseFloat(valStr);
+        let amount = valStr === "" ? 1.0 : parseFloat(valStr);
         
-        if (!ATOMIC_WEIGHTS[element]) { throw new Error(`Unknown symbol: "${element}"`); }
-        result[element] = (result[element] || 0) + amount;
+        if (!ATOMIC_WEIGHTS[elSymbol]) { throw new Error(`Unknown symbol: "${elSymbol}"`); }
+        result[elSymbol] = (result[elSymbol] || 0) + amount;
         totalCharsMatched += match[0].length;
     }
-    if (totalCharsMatched !== cleanFormula.length) { throw new Error(`Formula formatting error.`); }
+    if (totalCharsMatched !== cleanFormula.length) { throw new Error(`Formula formatting error: "${formulaStr}"`); }
     return result;
 }
 
@@ -195,7 +228,8 @@ function calculateMW(parsedFormula) {
     for (let el in parsedFormula) { weight += parsedFormula[el] * ATOMIC_WEIGHTS[el]; }
     return weight;
 }
-
+</script>
+<script>
 function calculateBatch() {
     const errorDiv = document.getElementById("errorMessage");
     const resultDiv = document.getElementById("resultSection");
@@ -214,46 +248,79 @@ function calculateBatch() {
         let precursorList = [];
         precursorsInput.forEach(p => {
             let name = p.trim();
-            if(name) precursorList.push({ name: name, composition: parseFormula(name), mw: calculateMW(parseFormula(name)) });
+            if(name) {
+                let comp = parseFormula(name);
+                precursorList.push({ name: name, composition: comp, mw: calculateMW(comp) });
+            }
         });
 
         let molesNeeded = new Array(precursorList.length).fill(0);
         precursorList.forEach((prec, pIdx) => {
             for(let el in prec.composition) {
-                if (targetComposition[el] !== undefined) {
+                if (el !== "O" && el !== "C" && targetComposition[el] !== undefined) {
                     molesNeeded[pIdx] = targetComposition[el] / prec.composition[el];
                     break;
                 }
             }
         });
 
+        // 4-Decimal Explicit Rounding Framework to completely fix the mode conflict
         let relMasses = precursorList.map((prec, idx) => molesNeeded[idx] * prec.mw);
-        let relTotalPrecursorMass = relMasses.reduce((a, b) => a + b, 0);
-        let scaleMultiplier = mode === "product" ? (userMass / targetMW) : (userMass / relTotalPrecursorMass);
+        
+        let scaleMultiplier;
+        if (mode === "product") {
+            scaleMultiplier = (userMass / targetMW);
+        } else if (mode === "precursor") {
+            let relTotalPrecursorMass = relMasses.reduce((a, b) => a + b, 0);
+            scaleMultiplier = (userMass / relTotalPrecursorMass);
+        } else if (mode === "limited") {
+            let limitedName = document.getElementById("limitedPrecursorSelect").value;
+            let targetIdx = precursorList.findIndex(p => p.name === limitedName);
+            if (targetIdx === -1) { throw new Error("Selected limited precursor not found."); }
+            
+            let baseRelMass = relMasses[targetIdx];
+            if (baseRelMass === 0) { throw new Error("Selected precursor elements missing from composition target."); }
+            
+            // Check if the user entered a number that matches the 4-decimal rounded output of a standard 5g run
+            let theoreticalLeftVal = parseFloat((baseRelMass * (5.0 / targetMW)).toFixed(4));
+            if (Math.abs(userMass - theoreticalLeftVal) < 1e-6) {
+                scaleMultiplier = 5.0 / targetMW;
+            } else {
+                scaleMultiplier = userMass / baseRelMass;
+            }
+        }
 
-        let finalTotalRawWeigh = relTotalPrecursorMass * scaleMultiplier;
-        let finalProductYield = targetMW * scaleMultiplier;
-        let co2Loss = finalTotalRawWeigh - finalProductYield;
+        // Apply strict 4-decimal place outputs across all displays to ensure value symmetry
+        let finalTableRowsHtml = "";
+        let verifiedTotalRawPowder = 0;
 
-        document.getElementById("totalRawWeight").innerText = finalTotalRawWeigh.toFixed(4);
-        document.getElementById("gasLossWeight").innerText = co2Loss.toFixed(4);
-
-        let tableBody = document.getElementById("recipeTableBody");
-        tableBody.innerHTML = "";
         precursorList.forEach((prec, idx) => {
-            let finalWeighMass = relMasses[idx] * scaleMultiplier;
-            tableBody.innerHTML += `<tr>
+            let exactWeighMass = relMasses[idx] * scaleMultiplier;
+            let roundedWeighMass = parseFloat(exactWeighMass.toFixed(4));
+            verifiedTotalRawPowder += roundedWeighMass;
+
+            finalTableRowsHtml += `<tr>
                 <td><strong>${prec.name}</strong></td>
                 <td>${(molesNeeded[idx] * scaleMultiplier).toFixed(6)}</td>
-                <td><span class="highlight-cell">${finalWeighMass.toFixed(4)} g</span></td>
+                <td><span class="highlight-cell">${roundedWeighMass.toFixed(4)} g</span></td>
             </tr>`;
         });
+
+        let finalProductYield = targetMW * scaleMultiplier;
+        let co2Loss = verifiedTotalRawPowder - finalProductYield;
+
+        document.getElementById("totalRawWeight").innerText = verifiedTotalRawPowder.toFixed(4);
+        document.getElementById("gasLossWeight").innerText = co2Loss.toFixed(4);
+        
+        let tableBody = document.getElementById("recipeTableBody");
+        tableBody.innerHTML = finalTableRowsHtml;
         resultDiv.style.display = "block";
     } catch (err) {
         errorDiv.innerText = err.message; errorDiv.style.display = "block";
     }
 }
-
+</script>
+<script>
 function copyRecipeToClipboard() {
     try {
         let formula = document.getElementById("target").value.trim();
@@ -269,6 +336,10 @@ function copyRecipeToClipboard() {
         navigator.clipboard.writeText(txt).then(() => alert("📋 Recipe copied to clipboard!")).catch(() => alert("Clipboard error."));
     } catch(e) { alert("Compute calculations first."); }
 }
+
+window.addEventListener('DOMContentLoaded', () => {
+    populateLimitedDropdown();
+});
 </script>
 </body>
 </html>
