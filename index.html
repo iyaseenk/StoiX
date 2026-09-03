@@ -18,12 +18,13 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg); color: var(--text); margin: 0;
-            padding: 20px 10px; display: flex; justify-content: center;
+            padding: 20px 10px; display: flex; flex-direction: column; align-items: center;
         }
         .app-window {
             width: 100%; max-width: 900px; background: var(--card-bg);
             border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
             border: 1px solid var(--border); overflow: hidden; box-sizing: border-box;
+            margin-bottom: 24px;
         }
         .lab-banner {
             background-color: var(--primary); color: white; padding: 20px 16px;
@@ -44,10 +45,15 @@
         label { font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 8px; }
         input[type="text"], input[type="number"], select { padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; color: var(--text-dark); background-color: #fff; box-sizing: border-box; width: 100%; }
         input:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 4px rgba(30, 58, 138, 0.1); }
+        .btn-group { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; width: 100%; }
         .btn { background-color: var(--primary); color: white; border: none; padding: 14px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; width: 100%; transition: all 0.2s; }
         .btn:hover { background-color: #1e40af; }
+        .btn-success { background-color: var(--success); }
+        .btn-success:hover { background-color: #11823b; }
         .btn-secondary { background-color: #64748b; margin-top: 16px; }
         .btn-secondary:hover { background-color: #475569; }
+        .btn-danger-outline { background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-danger-outline:hover { background: #fef2f2; }
         .result-box { margin-top: 32px; display: none; border-top: 2px dashed var(--border); padding-top: 24px; }
         .summary-cards { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 24px; }
         @media (min-width: 600px) { .summary-cards { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
@@ -64,6 +70,15 @@
         th { background-color: #f8fafc; color: var(--text-dark); font-weight: 600; }
         .highlight-cell { font-weight: 700; color: #1e3a8a; background-color: #eff6ff; padding: 6px 12px; border-radius: 6px; display: inline-block; border: 1px solid #bfdbfe; }
         .error { color: var(--danger); background-color: #fef2f2; padding: 14px 16px; border-radius: 8px; margin-top: 20px; display: none; font-weight: 500; border: 1px solid #fee2e2; }
+        
+        /* History Styles */
+        .history-window { width: 100%; max-width: 900px; background: var(--card-bg); border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid var(--border); padding: 24px; box-sizing: border-box; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--bg); padding-bottom: 12px; margin-bottom: 16px; }
+        .history-header h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-dark); }
+        .history-table th, .history-table td { padding: 10px 12px; font-size: 13px; }
+        .history-row { cursor: pointer; transition: background 0.15s; }
+        .history-row:hover { background-color: #f8fafc; }
+
         .lab-footer {
             margin-top: 40px; border-top: 1px dashed var(--border); padding-top: 16px;
             text-align: center; font-size: 11px; color: #64748b; line-height: 1.6;
@@ -93,7 +108,7 @@
             </div>
             <div class="form-group full-width">
                 <label for="target">Target Composition Formula</label>
-                <input type="text" id="target" value="Ca0.97Y0.0075La0.0075Bi0.0075Sr0.0075MnO3">
+                <input type="text" id="target" value="Ca0.84Y0.04La0.04Bi0.04Sr0.04MnO3">
             </div>
             <div class="form-group">
                 <label for="calculationMode">Calculation Mode</label>
@@ -113,7 +128,11 @@
             </div>
         </div>
 
-        <button class="btn" onclick="calculateBatch()">Compute Batch Recipe</button>
+        <div class="btn-group">
+            <button class="btn" onclick="calculateBatch()">Compute Batch Recipe</button>
+            <button class="btn btn-success" onclick="saveRecipeToStorage()">💾 Save Recipe</button>
+        </div>
+        
         <div id="errorMessage" class="error"></div>
 
         <div id="resultSection" class="result-box">
@@ -151,6 +170,47 @@
             © 2026 LFMD AWKUM. Developed by Yaseen Khan.<br>
             <strong>Disclaimer:</strong> For educational and laboratory planning purposes only. Always double-check critical calculations manually before preparing batches.
         </div>
+    </div>
+</div>
+<style>
+    /* New styling for the individual row delete button */
+    .delete-row-btn {
+        background: none;
+        border: none;
+        color: var(--danger);
+        cursor: pointer;
+        font-size: 16px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+    .delete-row-btn:hover {
+        background: #fff1f2;
+    }
+</style>
+
+<!-- Stored Data History Console -->
+<div class="history-window">
+    <div class="history-header">
+        <h2>Stored Formulas & Batch Logs</h2>
+        <button class="btn-danger-outline" onclick="clearHistoryStorage()">🗑️ Clear All Storage</button>
+    </div>
+    <div class="table-responsive">
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Target Formula</th>
+                    <th>Mode</th>
+                    <th>Mass Input</th>
+                    <th>Total Powder</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="historyTableBody">
+                <tr><td colspan="6" style="text-align:center; color:#64748b;">No saved batches found locally.</td></tr>
+            </tbody>
+        </table>
     </div>
 </div>
 <script>
@@ -228,8 +288,7 @@ function calculateMW(parsedFormula) {
     for (let el in parsedFormula) { weight += parsedFormula[el] * ATOMIC_WEIGHTS[el]; }
     return weight;
 }
-</script>
-<script>
+
 function calculateBatch() {
     const errorDiv = document.getElementById("errorMessage");
     const resultDiv = document.getElementById("resultSection");
@@ -264,7 +323,6 @@ function calculateBatch() {
             }
         });
 
-        // 4-Decimal Explicit Rounding Framework to completely fix the mode conflict
         let relMasses = precursorList.map((prec, idx) => molesNeeded[idx] * prec.mw);
         
         let scaleMultiplier;
@@ -281,7 +339,6 @@ function calculateBatch() {
             let baseRelMass = relMasses[targetIdx];
             if (baseRelMass === 0) { throw new Error("Selected precursor elements missing from composition target."); }
             
-            // Check if the user entered a number that matches the 4-decimal rounded output of a standard 5g run
             let theoreticalLeftVal = parseFloat((baseRelMass * (5.0 / targetMW)).toFixed(4));
             if (Math.abs(userMass - theoreticalLeftVal) < 1e-6) {
                 scaleMultiplier = 5.0 / targetMW;
@@ -290,7 +347,6 @@ function calculateBatch() {
             }
         }
 
-        // Apply strict 4-decimal place outputs across all displays to ensure value symmetry
         let finalTableRowsHtml = "";
         let verifiedTotalRawPowder = 0;
 
@@ -337,9 +393,109 @@ function copyRecipeToClipboard() {
     } catch(e) { alert("Compute calculations first."); }
 }
 
+/* ==========================================================================
+   LOCAL STORAGE AND ARCHIVE ENGINE (WITH INDIVIDUAL ROW DELETION)
+   ========================================================================== */
+
+function saveRecipeToStorage() {
+    calculateBatch();
+    const errorDisplay = document.getElementById("errorMessage").style.display;
+    if (errorDisplay === "block") { return; }
+
+    const record = {
+        timestamp: new Date().toLocaleString(),
+        precursors: document.getElementById("precursors").value,
+        target: document.getElementById("target").value,
+        mode: document.getElementById("calculationMode").value,
+        limitedSelect: document.getElementById("limitedPrecursorSelect").value,
+        weight: document.getElementById("batchWeight").value,
+        totalPowder: document.getElementById("totalRawWeight").innerText
+    };
+
+    let archive = JSON.parse(localStorage.getItem("stoixHistory")) || [];
+    archive.unshift(record);
+    localStorage.setItem("stoixHistory", JSON.stringify(archive));
+    
+    renderHistoryTable();
+    alert("💾 Recipe snapshot saved successfully!");
+}
+
+function renderHistoryTable() {
+    const tableBody = document.getElementById("historyTableBody");
+    let archive = JSON.parse(localStorage.getItem("stoixHistory")) || [];
+
+    if (archive.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b;">No saved batches found locally.</td></tr>`;
+        return;
+    }
+
+    tableBody.innerHTML = archive.map((entry, idx) => `
+        <tr class="history-row" onclick="handleRowClick(event, ${idx})">
+            <td><strong>${entry.timestamp}</strong></td>
+            <td><code>${entry.target}</code></td>
+            <td style="text-transform: capitalize;">${entry.mode}</td>
+            <td>${entry.weight} g</td>
+            <td><mark style="background:#bbf7d0; border-radius:4px; padding:2px 6px;">${entry.totalPowder} g</mark></td>
+            <td style="text-align: center;">
+                <button class="delete-row-btn" title="Delete Entry">❌</button>
+            </td>
+        </tr>
+    `).join("");
+}
+
+// Router to handle loading a recipe vs clicking the individual delete button
+function handleRowClick(event, index) {
+    if (event.target.classList.contains('delete-row-btn')) {
+        deleteSingleRecipe(index);
+    } else {
+        loadArchivedRecipe(index);
+    }
+}
+
+// Function to delete just ONE specific item from memory
+function deleteSingleRecipe(index) {
+    let archive = JSON.parse(localStorage.getItem("stoixHistory")) || [];
+    
+    if (confirm(`Are you sure you want to delete the calculation for target formula "${archive[index].target}"?`)) {
+        archive.splice(index, 1); // Extract and remove exactly one item at the target array position
+        localStorage.setItem("stoixHistory", JSON.stringify(archive));
+        renderHistoryTable();
+    }
+}
+
+function loadArchivedRecipe(index) {
+    let archive = JSON.parse(localStorage.getItem("stoixHistory")) || [];
+    if(!archive[index]) return;
+
+    const data = archive[index];
+    document.getElementById("precursors").value = data.precursors;
+    document.getElementById("target").value = data.target;
+    document.getElementById("calculationMode").value = data.mode;
+    
+    populateLimitedDropdown();
+    if(data.mode === "limited") {
+        document.getElementById("limitedPrecursorSelect").value = data.limitedSelect;
+    }
+    
+    updateLabel();
+    document.getElementById("batchWeight").value = data.weight;
+    
+    calculateBatch();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function clearHistoryStorage() {
+    if(confirm("Are you sure you want to permanently clear ALL your chemical calculation logs?")) {
+        localStorage.removeItem("stoixHistory");
+        renderHistoryTable();
+    }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     populateLimitedDropdown();
+    renderHistoryTable();
 });
+
 </script>
 </body>
 </html>
